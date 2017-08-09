@@ -1,29 +1,41 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+#Quantity VM
+QVM = 3
+
 Vagrant.configure("2") do |config|
   config.vm.box = "bertvv/centos72"
   config.vm.provider "virtualbox" do |vb|
     vb.gui = true
   end
 
-  config.vm.define "server1" do |server1|
-    server1.vm.hostname = "server1"
-    server1.vm.network "private_network", ip: "172.20.20.10"
-    server1.vm.provision "host-server2", type: "shell",
-      inline: "echo '172.20.20.11 server2' >> /etc/hosts"
+  ipdomainHash = Hash.new
+
+  (1..QVM).each do |i|
+    ipdomainHash ["172.20.20.1#{i}"]="server#{i}"
   end
 
-  config.vm.define "server2" do |server2|
-    server2.vm.hostname = "server2"
-    server2.vm.network "private_network", ip: "172.20.20.11"
-    server2.vm.provision "host-server1", type: "shell",
-      inline: "echo '172.20.20.10 server1' >> /etc/hosts"
-    server2.vm.provision "yum", type: "shell",
-      inline: "yum install git -y"
-    server2.vm.provision "git", type: "shell",
-      inline: "git clone https://github.com/tesldenis/DevOps-training.git"
-    server2.vm.provision "cat", type: "shell",
-      inline: "cat DevOps-training/hello.txt"
+  ipdomainHash.each do |ip, host|
+    config.vm.define host do |server|
+      server.vm.hostname = host
+      server.vm.network "private_network", ip: ip
+      currentIp = ip
+      ipdomainHash.each do |ip, host|
+        unless currentIp == ip
+        server.vm.provision host, type: "shell",
+          inline: "echo '#{ip} #{host}' >> /etc/hosts"
+        end
+      end
+
+      if host == "server1"
+        server.vm.provision "yum", type: "shell",
+          inline: "yum install git -y"
+        server.vm.provision "git", type: "shell",
+          inline: "git clone https://github.com/tesldenis/DevOps-training.git"
+        server.vm.provision "cat", type: "shell",
+          inline: "cat DevOps-training/hello.txt"
+      end
+    end
   end
 end
